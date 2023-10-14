@@ -51,6 +51,15 @@ class DataConfigManager:
 
             filename = root.find('filename').text
             image_file_path = anno_file_path.parent / filename
+
+            log_text = r'{}'.format(image_file_path)
+            logging.info(log_text)
+
+            if not image_file_path.exists():
+                log_text = r'Warning: image_file_path {} not exist!'.format(image_file_path)
+                logging.warning(log_text)
+                continue
+
             size = root.find('size')
             size_dict = self.parse_size(size)
             anno_info = {
