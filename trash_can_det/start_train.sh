@@ -15,9 +15,9 @@ rm -rf /project/train/result-graphs/*
 mkdir -p /project/train/result-graphs
 
 echo 'Start data_config...'
-python vehicle_det/data_config.py
+python trash_can_det/data_config.py
 
 echo 'Start cvmart_train...'
-python vehicle_det/yolo_train.py
+python trash_can_det/yolo_train.py
 
 echo 'Completed!'
