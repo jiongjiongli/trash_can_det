@@ -5,7 +5,7 @@ Trash can detection and garbage segmentation.
 ```bash
 !rm /project/train/src_repo/cvmart_env.sh
 
-!wget -P /project/train/src_repo/ https://gitee.com/jiongjiongli/trash_can_det/blob/main/trash_can_det/cvmart_env.sh
+!wget -P /project/train/src_repo/ https://raw.githubusercontent.com/jiongjiongli/trash_can_det/main/trash_can_det/cvmart_env.sh
 
 !bash /project/train/src_repo/cvmart_env.sh
 ```
