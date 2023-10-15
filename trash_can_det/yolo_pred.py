@@ -1,5 +1,7 @@
 import json
 from pathlib import Path
+import random
+import uuid
 import logging
 from xml.etree import ElementTree as ET
 import cv2
@@ -11,12 +13,16 @@ from ultralytics.utils import LOGGER as logger
 from ultralytics import YOLO
 
 
+data_root_path = Path(r'/home/data')
+
+
 def set_logging(log_file_path):
     file_handler = logging.FileHandler(Path(log_file_path).as_posix())
     file_handler.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
+
 
 def init():
     log_file_path = r'/project/train/log/log.txt'
@@ -38,6 +44,36 @@ def init():
     }
 
     return model_dict
+
+
+def generate_mask_file(model_dict,
+                       input_image,
+                       output_image_file_path,
+                       conf_thresh,
+                       iou_thresh):
+    output_image = np.zeroes_like(input_image)
+    segment_model = model_dict['seg']
+    results = segment_model(input_image, conf=conf_thresh, iou=iou_thresh)
+
+    for result in results:
+        polygons = result.masks.xy
+        cls_tensor = result.boxes.cls
+        # class_names = result.names
+
+        for polygon, class_index in zip(polygons, cls_tensor):
+            output_class_index = int(class_index + 1)
+            polygon_color = (output_class_index,
+                             output_class_index,
+                             output_class_index)
+            cv2.drawContours(output_image,
+                             [polygon],
+                             0,
+                             polygon_color,
+                             -1)
+
+    cv2.imwrite(output_image_file_path.as_posix(),
+                output_image)
+
 
 def process_image(model_dict, input_image=None, args=None, **kwargs):
     fake_result = {
@@ -93,16 +129,21 @@ def process_image(model_dict, input_image=None, args=None, **kwargs):
         fake_result['algorithm_data']['is_alert'] = True
         fake_result['algorithm_data']['target_count'] = target_count
 
-    segment_model = model_dict['seg']
-    results = segment_model(input_image, conf=conf_thresh, iou=iou_thresh)
+    if 'mask_output_path' in args:
+        output_image_file_path = data_root_path / r'output_mask_{}.png'.format(uuid.uuid4())
+        generate_mask_file(model_dict,
+            input_image,
+            output_image_file_path,
+            conf_thresh,
+            iou_thresh)
+
+        fake_result['model_data']['objects'] = output_image_file_path.as_posix()
 
     result_str = json.dumps(fake_result, indent = 4)
     return result_str
 
 
 def main():
-    data_root_path = Path(r'/home/data')
-
     anno_file_paths = list(data_root_path.rglob('*.xml'))
     anno_file_paths = anno_file_paths[:2]
 
