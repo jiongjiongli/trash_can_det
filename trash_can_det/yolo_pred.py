@@ -67,7 +67,7 @@ def generate_mask_file(model_dict,
                              output_class_index,
                              output_class_index)
             cv2.drawContours(output_image,
-                             [polygon.reshape((-1,1,2))],
+                             [polygon.reshape((-1, 1, 2)).astype(np.int32)],
                              0,
                              polygon_color,
                              -1)
