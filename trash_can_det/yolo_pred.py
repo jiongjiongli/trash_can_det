@@ -5,6 +5,7 @@ import uuid
 import logging
 from xml.etree import ElementTree as ET
 import cv2
+import numpy as np
 import sys
 
 sys.path.append('/project/train/src_repo/ultralytics')
