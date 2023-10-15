@@ -8,6 +8,7 @@ import logging
 import yaml
 import numpy as np
 import torch
+from PIL import Image
 
 
 def set_logging(log_file_path):
@@ -31,17 +32,36 @@ def set_random_seed(seed=0, deterministic=False):
         torch.use_deterministic_algorithms(True)
 
 
+
 class DataConfigManager:
     def __init__(self, config_file_path_dict):
         self.config_file_path_dict = config_file_path_dict
+
+        self.class_name_dict = {
+            0: 'background',
+            1: 'dustbin',
+            2: 'litter_bin',
+            3: 'garbage',
+            4: 'other_trash_cans'
+        }
+
+        self.class_colors = [
+              0,   0,   0, # 0 Black,  background
+            255, 255,   0, # 1 Yellow, dustbin
+              0, 255,   0, # 2 Green,  litter_bin
+            255,   0,   0, # 3 Red,    garbage
+              0,   0, 255, # 4 Blue,   other_trash_cans
+        ]
 
     def generate(self):
         anno_info_list = self.parse_anno_info()
         self.generate_yolo_configs(anno_info_list)
 
+
     def parse_anno_info(self):
         anno_info_list = []
         ignored_image_file_paths = []
+        ignored_mask_file_paths = []
 
         data_root_path = self.config_file_path_dict['path']
         anno_file_paths = list(data_root_path.rglob('*.xml'))
@@ -53,35 +73,29 @@ class DataConfigManager:
             filename = root.find('filename').text
             image_file_path = anno_file_path.parent / filename
 
-            # log_text = r'image_file_path: {}'.format(image_file_path)
-            # logging.info(log_text)
-
             if not image_file_path.exists():
                 # log_text = r'Warning: image_file_path {} not exist!'.format(image_file_path)
                 # logging.warning(log_text)
                 ignored_image_file_paths.append(image_file_path)
                 continue
 
-            size = root.find('size')
-            size_dict = self.parse_size(size)
+            mask_file_path = image_file_path.with_suffix('.png')
+
+            if not mask_file_path.exists():
+                ignored_mask_file_paths.append(mask_file_path)
+                continue
+
             anno_info = {
                 'image_file_path': image_file_path,
-                'size': size_dict,
-                'bnd_box_list': []
+                'mask_file_path': mask_file_path
             }
-
-            for object_iter in root.findall('object'):
-                name = object_iter.find('name').text
-                bnd_box = object_iter.find('bndbox')
-
-                bnd_box_dict = self.parse_bnd_box(bnd_box)
-                bnd_box_dict['class_name'] = name
-                anno_info['bnd_box_list'].append(bnd_box_dict)
 
             anno_info_list.append(anno_info)
 
-        valid_num_info = r'Valid num_files: {} ignored num_files: {}'.format(
-            len(anno_info_list), len(ignored_image_file_paths))
+        valid_num_info = r'Valid num_files: {} ignored num_files: {} ignored num_mask_files: {}'.format(
+            len(anno_info_list),
+            len(ignored_image_file_paths),
+            len(ignored_mask_file_paths))
         logging.info(valid_num_info)
 
         return anno_info_list
@@ -92,47 +106,61 @@ class DataConfigManager:
                               max_val_percent=0.2,
                               seed=7):
         config_file_path_dict = self.config_file_path_dict
-        class_name_dict = {}
+        target_classes = {}
+
+        for class_index in len(self.class_name_dict):
+            if class_index == 0:
+                continue
+
+            target_class_index = class_index - 1
+            class_name = self.class_name_dict[class_index]
+            target_classes[target_class_index] = class_name
 
         for anno_info in anno_info_list:
-            bnd_box_list = anno_info['bnd_box_list']
+            mask_file_path = anno_info['mask_file_path']
 
-            for bnd_box_dict in bnd_box_list:
-                class_name = bnd_box_dict['class_name']
-                class_name_dict.setdefault(class_name, 0)
-                class_name_dict[class_name] += 1
-
-        class_names = list(class_name_dict.keys())
-
-        for anno_info in anno_info_list:
+            mask_img = cv2.imread(mask_file_path.as_posix(),
+                                  cv2.IMREAD_GRAYSCALE)
+            image_height = mask_img.shape[0]
+            image_width = mask_img.shape[1]
+            image_size = np.array([image_width, image_height], dtype=np.float32)
             anno_contents = []
 
-            size_dict = anno_info['size']
-            image_width = size_dict['width']
-            image_height = size_dict['height']
+            for class_index in self.class_name_dict.keys():
+                if class_index == 0:
+                    continue
 
-            bnd_box_list = anno_info['bnd_box_list']
+                target_class_index = class_index - 1
 
-            for bnd_box_dict in bnd_box_list:
-                class_name = bnd_box_dict['class_name']
-                class_index = class_names.index(class_name)
+                mask_per_class = np.zeros_like(mask_img)
+                mask_per_class[mask_img==class_index] = 1
 
-                x_min = bnd_box_dict['xmin']
-                y_min = bnd_box_dict['ymin']
-                x_max = bnd_box_dict['xmax']
-                y_max = bnd_box_dict['ymax']
+                contours, _ = cv2.findContours(mask_per_class,
+                    cv2.RETR_LIST,
+                    cv2.CHAIN_APPROX_SIMPLE)
 
-                normed_center_x = (x_min + x_max) / 2 / image_width
-                normed_center_y = (y_min + y_max) / 2 / image_height
-                normed_bbox_width = (x_max - x_min) / image_width
-                normed_bbox_height = (y_max - y_min) / image_height
-                line = r'{} {} {} {} {}'.format(
-                    class_index,
-                    normed_center_x,
-                    normed_center_y,
-                    normed_bbox_width,
-                    normed_bbox_height)
-                anno_contents.append(line)
+                for contour in contours:
+                    normed_contour = contour / image_size
+                    polygon = normed_contour.flatten()
+
+                    line = r'{} {}'.format(
+                        target_class_index,
+                        np.array2string(polygon, separator=' '))
+                    anno_contents.append(line)
+
+            if is_mask_visual:
+                # Create new image of correct size with mode 'P', set image data
+                mask_visual_img = Image.new('P', (mask_img.shape[1], mask_img.shape[0]), 0)
+                mask_visual_img.putdata(mask_img.flatten())
+
+                # Set up and apply palette data
+                mask_visual_img.putpalette(self.class_colors)
+
+                # Save image
+                mask_visual_file_name = r'{}_mask_visual{}'.format(
+                    mask_file_path.stem, mask_file_path.suffix)
+                mask_visual_file_path = mask_file_path.parent / mask_visual_file_name
+                mask_visual_img.save(mask_visual_file_path.as_posix())
 
             image_file_path = Path(anno_info['image_file_path'])
             anno_config_file_path = image_file_path.with_suffix('.txt')
@@ -168,11 +196,7 @@ class DataConfigManager:
             'path': config_file_path_dict['path'].as_posix(),
             'train': config_file_path_dict['train'].name,
             'val': config_file_path_dict['val'].name,
-            'names': {
-                class_index: class_name
-                for class_index, class_name
-                in enumerate(class_names)
-            }
+            'names': target_classes
         }
 
         message = r'Writing dataset config file: {}'.format(
@@ -182,44 +206,15 @@ class DataConfigManager:
         with open(config_file_path_dict['dataset'], 'w') as file_stream:
             yaml.dump(dataset_config, file_stream, indent=4)
 
-    def parse_size(self, size):
-        width = int(size.find('width').text)
-        height = int(size.find('height').text)
-
-        size_dict = {
-            'width': width,
-            'height': height
-        }
-
-        return size_dict
-
-    def parse_bnd_box(self, bnd_box):
-        if not bnd_box:
-            return None
-
-        x_min = float(bnd_box.find('xmin').text)
-        y_min = float(bnd_box.find('ymin').text)
-        x_max = float(bnd_box.find('xmax').text)
-        y_max = float(bnd_box.find('ymax').text)
-
-        bnd_box_dict = {
-            'xmin': x_min,
-            'ymin': y_min,
-            'xmax': x_max,
-            'ymax': y_max
-        }
-
-        return bnd_box_dict
-
 
 def main():
     data_root_path = Path(r'/home/data')
 
     config_file_path_dict = {
         'path': data_root_path,
-        'train': data_root_path / 'train.txt',
-        'val': data_root_path / 'val.txt',
-        'dataset': data_root_path / 'custom_dataset.yaml'
+        'train': data_root_path / 'seg_train.txt',
+        'val': data_root_path / 'seg_val.txt',
+        'dataset': data_root_path / 'seg_custom_dataset.yaml'
     }
 
     log_file_path = '/project/train/log/log.txt'
@@ -232,6 +227,7 @@ def main():
     data_manager.generate()
     logging.info('End DataConfigManager')
     logging.info('=' * 80)
+
 
 if __name__ == '__main__':
     main()
