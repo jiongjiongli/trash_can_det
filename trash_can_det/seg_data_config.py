@@ -108,12 +108,11 @@ class DataConfigManager:
         config_file_path_dict = self.config_file_path_dict
         target_classes = {}
 
-        for class_index in len(self.class_name_dict):
+        for class_index, class_name in self.class_name_dict.items():
             if class_index == 0:
                 continue
 
             target_class_index = class_index - 1
-            class_name = self.class_name_dict[class_index]
             target_classes[target_class_index] = class_name
 
         for anno_info in anno_info_list:
