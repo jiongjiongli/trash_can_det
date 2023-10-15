@@ -104,7 +104,8 @@ class DataConfigManager:
                               anno_info_list,
                               max_num_val_data=1000,
                               max_val_percent=0.2,
-                              seed=7):
+                              seed=7,
+                              is_mask_visual=False):
         config_file_path_dict = self.config_file_path_dict
         target_classes = {}
 
