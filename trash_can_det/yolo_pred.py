@@ -137,7 +137,7 @@ def process_image(model_dict, input_image=None, args=None, **kwargs):
             conf_thresh,
             iou_thresh)
 
-        fake_result['model_data']['objects'] = output_image_file_path.as_posix()
+        fake_result['model_data']['mask'] = output_image_file_path.as_posix()
 
     result_str = json.dumps(fake_result, indent = 4)
     return result_str
