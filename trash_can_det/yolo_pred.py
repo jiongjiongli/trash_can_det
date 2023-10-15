@@ -129,7 +129,7 @@ def process_image(model_dict, input_image=None, args=None, **kwargs):
         fake_result['algorithm_data']['is_alert'] = True
         fake_result['algorithm_data']['target_count'] = target_count
 
-    if 'mask_output_path' in args:
+    if args and 'mask_output_path' in args:
         output_image_file_path = data_root_path / r'output_mask_{}.png'.format(uuid.uuid4())
         generate_mask_file(model_dict,
             input_image,
@@ -156,7 +156,7 @@ def main():
         filename = root.find('filename').text
         image_file_path = anno_file_path.parent / filename
         img = cv2.imread(image_file_path.as_posix())
-        result_str = process_image(model, img)
+        result_str = process_image(model, img, 'mask_output_path')
 
         logger.info(r'image_file_path: {}'.format(image_file_path))
 
