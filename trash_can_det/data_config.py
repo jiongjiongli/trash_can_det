@@ -179,6 +179,9 @@ class DataConfigManager:
             config_file_path_dict['dataset'])
         logging.info(message)
 
+        logging.info('dataset_config:')
+        logging.info(dataset_config)
+
         with open(config_file_path_dict['dataset'], 'w') as file_stream:
             yaml.dump(dataset_config, file_stream, indent=4)
 
