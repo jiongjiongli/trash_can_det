@@ -67,7 +67,7 @@ def main():
     model_file_path = repo_dir_path / 'yolov8n-seg.pt'
     data_root_path = Path(r'/home/data')
     dataset_config_file_path = data_root_path / 'seg_custom_dataset.yaml'
-    model_save_dir_path = Path('/project/train/models')
+    model_save_dir_path = Path('/project/train/models/segment')
     # model_file_path = model_save_dir_path  / 'train/weights' / 'last.pt'
     result_graphs_dir_path = Path('/project/train/result-graphs')
     font_file_names = ['Arial.ttf']
