@@ -141,11 +141,11 @@ class DataConfigManager:
 
                 for contour in contours:
                     normed_contour = contour / image_size
-                    polygon = normed_contour.flatten()
+                    polygon_flatten = normed_contour.flatten()
 
                     line = r'{} {}'.format(
                         target_class_index,
-                        np.array2string(polygon, separator=' '))
+                        ' '.join(map(str, polygon_flatten)))
                     anno_contents.append(line)
 
             if is_mask_visual:
