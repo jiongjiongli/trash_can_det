@@ -52,7 +52,7 @@ def generate_mask_file(model_dict,
                        output_image_file_path,
                        conf_thresh,
                        iou_thresh):
-    output_image = np.zeroes_like(input_image)
+    output_image = np.zeros_like(input_image)
     segment_model = model_dict['seg']
     results = segment_model(input_image, conf=conf_thresh, iou=iou_thresh)
 
