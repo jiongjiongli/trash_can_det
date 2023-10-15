@@ -27,6 +27,9 @@ cp /project/train/src_repo/trash_can_det/trash_can_det/start_train.sh /project/t
 
 cp -r /project/train/src_repo/trash_can_det/trash_can_det /project/train/src_repo/ultralytics/
 
+mkdir -p /project/ev_sdk/src/
+cp /project/train/src_repo/trash_can_det/trash_can_det/yolo_pred.py /project/ev_sdk/src/ji.py
+
 # rm -rf /project/train/models/*
 rm -rf /project/train/tensorboard/*
 rm -rf /project/train/log/*
