@@ -71,7 +71,7 @@ def generate_mask_file(model_dict,
                              0,
                              polygon_color,
                              -1)
-
+    output_image = cv2.cvtColor(output_image, cv2.COLOR_BGR2GRAY)
     cv2.imwrite(output_image_file_path.as_posix(),
                 output_image)
 
